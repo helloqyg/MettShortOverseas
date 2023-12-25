@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+ 
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>纯CSS table表格 thead固定 tbody滚动</title>
+    <style>
+      
+ 
+        /* 滚动条宽度 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            background-color: transparent;
+        }
+ 
+        /* 滚动条颜色 */
+        ::-webkit-scrollbar-thumb {
+            background-color: #27314d;
+        }
+ 
+        table {
+            width: 100%;
+            border-spacing: 0px;
+            border-collapse: collapse;
+        }
+ 
+       
+ 
+        table th, table td {
+            height: 100px;
+            text-align: center;
+            border: 1px solid gray;
+        }
+ 
+        table thead {
+            color: white;
+            background-color: #38F;
+        }
+ 
+        table tbody {
+            display: block;
+            width: calc(100% + 8px); /*这里的8px是滚动条的宽度*/
+            height: 300px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+ 
+        
+ 
+        table thead tr, table tbody tr {
+            box-sizing: border-box;
+            table-layout: fixed;
+            display: table;
+            width: 100%;
+        }
+ 
+       
+        table tbody tr td{
+            border-bottom: none;
+        }
+ 
+    </style>
+</head>
+ 
+<body>
+        <table cellpadding="0" cellspacing="0">
+                    <col style="width: 200px"><!--统一列宽-->
+
+            <thead>
+                <tr>
+                    <th>序 号</th>
+                    <th>姓 名</th>
+                    <th>年 龄</th>
+                    <th>性 别</th>
+                    <th > 手 机</th>
+					<th>手 机 ji</th>
+                </tr>
+            </thead>
+ 
+            <tbody>
+                <tr>
+                    <td rowspan="3">001</td>
+                    <td>Name</td>
+                    <td>28</td>
+                    <td>女</td>
+                    <td>Mobile</td>
+					 <td>Mobile</td>
+                </tr>
+                <tr>
+                   
+                    <td>Name</td>
+                    <td>28</td>
+                    <td>男</td>
+                    <td>Mobile</td>
+					 <td>Mobile</td>
+                </tr>
+                <tr>
+                    <td>Name</td>
+                    <td>28</td>
+                    <td>女</td>
+                    <td>Mobile</td>
+					 <td>Mobile</td>
+                </tr>
+                <tr>
+                    <td>004</td>
+                    <td>Name</td>
+                    <td>28</td>
+                    <td>男</td>
+                    <td>Mobile</td>
+					 <td>Mobile</td>
+                </tr>
+                <tr>
+                    <td>005</td>
+                    <td>Name</td>
+                    <td>28</td>
+                    <td>女</td>
+                    <td>Mobile</td>
+					 <td>Mobile</td>
+                </tr>
+                <tr>
+                    <td>006</td>
+                    <td>Name</td>
+                    <td>28</td>
+                    <td>男</td>
+                    <td>Mobile</td>
+					 <td>Mobile</td>
+                </tr>
+                <tr>
+                    <td>007</td>
+                    <td>Name</td>
+                    <td>28</td>
+                    <td>女</td>
+                    <td>Mobile</td>
+					 <td>Mobile</td>
+                </tr>
+                <tr>
+                    <td>008</td>
+                    <td>Name</td>
+                    <td>28</td>
+                    <td>男</td>
+                    <td>Mobile</td>
+					 <td>Mobile</td>
+                </tr>
+            </tbody>
+ 
+            
+        </table>
+    
+</body>
+ 
+</html>

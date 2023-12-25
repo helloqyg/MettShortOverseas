@@ -1,0 +1,560 @@
+<!--
+ * @Description:
+ * @Author: FangYaoTang
+ * @Date: 2023-08-16 09:17:24
+ * @LastEditor: FangYaoTang
+ * @LastEditTime: 2023-08-19 14:52:37
+ * @Copyright: by 南阳迈特网络科技有限公司 禁止任何形式（包含二次开发）转售系统源码，违者必究。
+-->
+
+
+<template>
+	<view class="page_content">
+		<view class="main_content" :style="[{ paddingTop: barHeight + 'px' }]">
+			<view class="swiper" id="swiper" @touchstart="touchStart" @touchmove="touchMove" @touchend="touchEnd">
+				<view class="swiper_item" :style="[{ height: swiperHeight + 'px' }, swiperTransform]" v-for="(item, index) in videoData" :key="index">
+					<view class="videos" v-if="videoIndex == index">
+						<video class="video" :id="'vplayer' + index" :ref="'vplayer' + index"
+							:loop="false" :controls="false" :autoplay="videoIndex == index" object-fit="cover"
+							:enable-progress-gesture="true" :show-center-play-btn="false" :src="item.url"
+							@play="isPlaying = true, isPlayError = false" @pause="isPlaying = false" @ended="videoEnded"
+							@error="videoError" @timeupdate="videoTimeUpdate" @click="videoClick">
+						</video>
+						<view class="verror" :style="[{ height: swiperHeight + 'px' }]" v-if="isPlayError">
+							<image class="image" :src="item.image" mode="aspectFill"></image>
+							<view class="content">
+								<u-icon name="info-circle-fill" color="#fff" size="50"></u-icon>
+								<text class="text">非常抱歉，视频播放出错啦！</text>
+							</view>
+						</view>
+					</view> 
+					<view class="buttons" v-if="!isDrag && !isPlayError && videoIndex == index" @click="videoPlay">
+						<u-icon v-if="!isPlaying" name="play-right-fill" color="rgba(255, 255, 255, 0.8)" :size="60"></u-icon>
+					</view>
+					<!-- 需要注释当前代码 -->
+					<view class="sidebar" v-if="!isDrag && !isPlayError && videoIndex == index">
+						<view class="item" @click="handleLikes(item.id, index)">
+							<image class="image" :src="`https://img.nymaite.com/video_short/icons/likes_${item.is_like ? 1 : 0 }.png`" mode="widthFix"></image>
+							<text class="text" :class="{ active: item.is_like }">{{ item.likes }}</text>
+						</view>
+						<view class="item" @click="handleCollect(item.vid, index)">
+							<image class="image" :src="`https://img.nymaite.com/video_short/icons/collect_${item.video.is_favorite ? 1 : 0 }.png`" mode="widthFix"></image>
+							<text class="text" :class="{ active: item.video.is_favorite }">{{ item.video.favorites }}</text>
+						</view>
+						<!-- <view class="item" @click="">
+							<image class="image" src="/static/icons/share_0.png" mode="widthFix"></image>
+							<text class="text">{{ item.shares }}</text>
+						</view> -->
+					</view>
+					<view class="infobox" v-if="!isDrag && videoIndex == index">
+						<text class="title">{{ item.video.title }}</text>
+						<text class="textarea">{{ item.video.description }}</text>
+						<view class="content">
+							<u-icon name="play-right-fill" color="#fff" size="18"></u-icon>
+							<text class="text1">{{ item.name }}（共{{ item.video.episodes }}集）</text>
+							<text class="text2" @click="getApp.jumpView('/pages/video/play?id=' + item.video.id)">查看更多剧集</text>
+						</view>
+					</view>
+					<view class="progress" v-if="duration > 0 && videoIndex == index">
+						<view class="bar" :style="{ width: progressBar + 'px' }"></view>
+					</view>
+				</view>
+			</view>
+		</view>
+		<view class="footer_content">
+			<u-safe-bottom></u-safe-bottom>
+		</view>
+		<u-notify ref="uNotify"></u-notify>
+	</view>
+</template>
+
+<script>
+	import { mapState, mapGetters, mapMutations, mapActions } from "vuex"
+	export default {
+		data() {
+			return {
+				winWidth: 0, // 窗口宽度
+				winHeight: 0, // 窗口高度
+				swiperHeight: 0, // swiper高度
+				barHeight: uni.getSystemInfoSync().statusBarHeight,
+				getApp: getApp(), // nvue全局变量
+				
+				progressBar: 0, // 播放进度
+				currentTime: 0, // 当前视频播放进度
+				duration: 0, // 当前视频总时长
+				isDrag: false, // 拖动进度条状态
+				dragStarTime: "00:00", // 拖拽开始时长
+				dragEndTime: "00:00", // 拖拽结束时长
+				
+				isPlaying: true, // 播放状态
+				isPlayError: false, // 播放错误
+				
+				clickNum: 0, // 点击次数
+				clickTimer: null, // 点击定时器
+
+				originData: [], // 源数据
+				originIndex: 0, // 源数据索引
+				oldIndex: 0, // 源数据上一次索引
+				
+				videoData: [], // 渲染数据
+				videoIndex: 0, // 渲染数据索引
+				
+				touchStartX: 0, // 触摸时的x原点
+				touchStartY: 0, // 触摸时的y原点
+				touchTime: 0, // 时间记录，用于滑动时且时间小于1s则执行左右滑动
+				touchInterval: '', // 记录/清理时间记录
+				touchMoveX: 0, // x轴方向移动的距离
+				touchMoveY: 0, // y轴方向移动的距离
+				direction: 'all', // 切换方向
+				distance: 50, // 触发距离
+				touchEndX: 0, // 触摸结束x原点
+				touchEndY: 0, // 触摸结束y原点
+			}
+		},
+		computed: {
+			...mapGetters("user", ["token", "userInfo"]),
+			...mapGetters("app", []),
+			swiperTransform() {
+				const v = this.videoIndex == 0 ? 0 : this.videoIndex == 1 ? -100 : this.videoIndex == 2 ? -200 : 0
+				return {
+					transform: `translateY(${v}%)`
+				}
+			},
+		},
+		onLoad(option) {
+			this.getVideoMenu()
+		},
+		onShow() {
+			uni.setTabBarStyle({
+				color: '#999',
+				selectedColor: '#fff',
+				backgroundColor: '#000',
+				borderStyle: 'black'
+			})
+			if(this.originData.length && !this.isPlaying) {
+				this.videoPlay()
+			}
+		},
+		onHide() {
+			uni.setTabBarStyle({
+				color: "#999",
+				selectedColor: getApp().globalData.isColor,
+				backgroundColor: "#fff",
+				borderStyle: "black",
+			})
+			if(this.originData.length && this.isPlaying) {
+				this.videoPause()
+			}
+		},
+		onReady() {
+			this.winWidth = uni.getSystemInfoSync().windowWidth
+			this.winHeight = uni.getSystemInfoSync().windowHeight
+			const timer = setTimeout(() => {
+				uni.createSelectorQuery().select('#swiper').boundingClientRect((res)=>{
+					this.swiperHeight = res.height
+				}).exec()
+				clearTimeout(timer)
+			}, 300)
+		},
+		methods: {
+			// 切换视频
+			changeCurrent(val) {
+				let current = this.videoIndex
+				if(val === 'prev') {
+					if(current == 0) current = 2
+					else current --
+					const obj = { detail: { current } }
+					this.swiperChange(obj)
+				} else if(val === 'next') {
+					if(current < 2) current ++
+					else current = 0
+					const obj = { detail: { current } }
+					this.swiperChange(obj)
+				}
+			},
+			// 触摸开始事件
+			touchStart(e) {
+				this.touchStartX = e.changedTouches[0].pageX; // 获取触摸时的原点
+				this.touchStartY = e.changedTouches[0].pageY; // 获取触摸时的原点
+				// 使用js计时器记录时间
+				clearInterval(this.touchInterval); // 清除setInterval
+				this.touchTime = 0;
+				this.touchInterval = setInterval(() => {
+					this.touchTime ++;
+				}, 100);
+			},
+			// 触摸移动事件
+			touchMove(e) {
+				// this.touchMoveX = e.changedTouches[0].pageX;
+				// this.touchMoveY = e.changedTouches[0].pageY;
+			},
+			// 触摸结束事件
+			touchEnd(e) {
+				this.touchEndX = e.changedTouches[0].pageX;
+				this.touchEndY = e.changedTouches[0].pageY;
+				
+				let moveX = this.touchEndX - this.touchStartX;
+				let moveY = this.touchEndY - this.touchStartY;
+				
+				if (Math.sign(moveX) == -1) {
+					moveX = moveX * -1;
+				}
+				if (Math.sign(moveY) == -1) {
+					moveY = moveY * -1;
+				}
+				if (2 * moveX <= moveY) {
+					// 上下
+					if (this.direction != 'all' && this.direction != 'vertical') return;
+					// 向上滑动
+					if (this.touchEndY - this.touchStartY <= -this.distance && this.touchTime < 10) {
+						console.log('向上 下一页');
+						
+						if(this.originIndex == this.originData.length - 1) {
+							console.log("到底了");
+							this.getVideoMenu()
+						} else {
+							this.changeCurrent('next')
+						}
+					}
+					// 向下滑动
+					if (this.touchEndY - this.touchStartY >= this.distance && this.touchTime < 10) {
+						console.log('向下 上一页');
+						
+						if(this.originIndex == 0) {
+							console.log("到顶了");
+							this.$refs.uNotify.show({
+								top: 0,
+								type: 'error',
+								color: '#fff',
+								bgColor: 'rgba(0, 0, 0, 0.5)',
+								message: '到顶了',
+								duration: 1000 * 3,
+								fontSize: '32rpx',
+								safeAreaInsetTop: true
+							})
+						} else {
+							this.changeCurrent('prev')
+						}
+					}
+				} else if (moveX > 2 * moveY) {
+					// 左右
+					if (this.direction != 'all' && this.direction != 'horizontal') return;
+					if (this.touchEndX - this.touchStartX <= -this.distance && this.touchTime < 10) {
+						console.log("向左");
+					}
+					if (this.touchEndX - this.touchStartX >= this.distance && this.touchTime < 10) {
+						console.log("向右");
+					}
+				}
+				clearInterval(this.touchInterval); // 清除setInterval
+				this.touchTime = 0;
+			},
+			// 获取节目单
+			getVideoMenu() {
+				
+				getApp().request('video.recommend').then(res => {
+					if(res.code === 1) {
+						if(res.data && res.data.length) {
+							this.originData = this.originData.concat(res.data)
+							this.initSwiperData()
+						}
+					}
+				})
+			},
+			// 初始化swiper数据
+			initSwiperData(originIndex = this.originIndex) {
+				const originDataLength = this.originData.length;
+				const videoList = [];
+				videoList[this.videoIndex] = this.originData[originIndex];
+				videoList[this.videoIndex - 1 == -1 ? 2 : this.videoIndex - 1] = this.originData[originIndex - 1 == -1 ? originDataLength - 1 : originIndex - 1];
+				videoList[this.videoIndex + 1 == 3 ? 0 : this.videoIndex + 1] = this.originData[originIndex + 1 == originDataLength ? 0 : originIndex + 1];
+				this.videoData = videoList;
+				
+				if (this.oldIndex >= this.originData.length) {
+					this.oldIndex = 0
+				}
+				if (this.oldIndex < 0) {
+					this.oldIndex = this.originData.length - 1
+				}
+				
+				// if(this.originIndex == this.originData.length - 1) {
+				// 	this.getVideoMenu()
+				// }
+				
+				// 重置进度条状态
+				this.duration = 0
+				this.currentTime = 0
+				this.isDrag = false
+				this.isPlayError = false
+			},
+			// swiper切换
+			swiperChange(event) {
+				const { current } = event.detail;
+				const originDataLength = this.originData.length;
+				if (this.videoIndex - current == 2 || this.videoIndex - current == -1) {
+					this.originIndex = this.originIndex + 1 == originDataLength ? 0 : this.originIndex + 1;
+					this.videoIndex = this.videoIndex + 1 == 3 ? 0 : this.videoIndex + 1;
+					this.oldIndex = this.originIndex - 1
+					this.initSwiperData(this.originIndex);
+				} else if (this.videoIndex - current == -2 || this.videoIndex - current == 1) {
+					this.originIndex = this.originIndex - 1 == -1 ? originDataLength - 1 : this.originIndex - 1;
+					this.videoIndex = this.videoIndex - 1 == -1 ? 2 : this.videoIndex - 1;
+					this.oldIndex = this.originIndex + 1
+					this.initSwiperData(this.originIndex);
+				}
+			},
+			// 播放
+			videoPlay() {
+				const video = this.getVideoCtx()
+				if(!video) return
+				video.play()
+				this.isPlaying = true
+			},
+			// 暂停
+			videoPause() {
+				const video = this.getVideoCtx()
+				if(!video) return
+				video.pause()
+				this.isPlaying = false
+			},
+			// 播放结束
+			videoEnded(e) {
+				this.changeCurrent('next')
+			},
+			// 视频播放出错
+			videoError() {
+				this.isPlayError = true
+			},
+			// 点击
+			videoClick(e) {
+				this.clickTimer && clearTimeout(this.clickTimer)
+				this.clickNum++
+				this.clickTimer = setTimeout(() => {
+					if(this.clickNum >= 2) {
+						console.log('你双击了')
+					} else {
+						console.log('你单击了')
+						if(this.isPlaying) {
+							this.videoPause()
+						} else {
+							this.videoPlay()
+						}
+					}
+					this.clickNum = 0
+				}, 200)
+			},
+			// 获取video标签上下文
+			getVideoCtx() {
+				return uni.createVideoContext('vplayer'+ this.videoIndex, this)
+			},
+			// 点赞
+			handleLikes(id, index) {
+				const obj = {
+					episode_id: id,
+					type: 'like'
+				}
+				getApp().request('video.likes', obj, false).then(res => {
+					if(res.code === 1) {
+						if(this.videoData[index].is_like == 0) {
+							this.videoData[index].is_like = 1
+							this.videoData[index].likes++
+						} else {
+							this.videoData[index].is_like = 0
+							this.videoData[index].likes--
+						}
+					}
+				})
+			},
+			// 收藏
+			handleCollect(id, index) {
+				if(this.videoData[index].video.is_favorite == 0) {
+					const obj = { vid: id, type: 'favorite' }
+					getApp().request('video.addRecord', obj, false).then(res => {
+						if(res.code === 1) {
+							this.videoData[index].video.is_favorite = 1
+							this.videoData[index].video.favorites++
+						}
+					})
+				} else {
+					const obj = { ids: id, type: 'favorite' }
+					getApp().request('video.deleteRecord', obj, false).then(res => {
+						if(res.code === 1) {
+							this.videoData[index].video.is_favorite = 0
+							this.videoData[index].video.favorites--
+						}
+					})
+				}
+			},
+			// 拖拽结束
+			sliderChange(e) {
+				const video = this.getVideoCtx()
+				if(!video) return
+				// 停止拖拽
+				this.isDrag = false
+				// 判断一下是否大于基础时间
+				if (this.duration > 0.1) {
+					// 跳到指定时间点
+					video.seek(e.detail.value)
+					// 并调用播放
+					video.play()
+				}
+			},
+			// 正在拖拽
+			sliderChanging(e) {
+				// 开始拖拽
+				this.isDrag = true
+				// 刷新时间
+				this.dragStarTime = getApp().utils.formatTime(e.detail.value)
+				// 总时间
+				this.dragEndTime = getApp().utils.formatTime(this.duration)
+			},
+			// 更新进度
+			videoTimeUpdate(e) {
+				if(this.isDrag) return
+			    const { currentTime, duration } = e.detail
+				// 当前进度
+				this.currentTime = Math.trunc(currentTime)
+				this.duration = Math.trunc(duration)
+				// 进度文本
+				this.dragStarTime = getApp().utils.formatTime(this.currentTime)
+				this.dragEndTime = getApp().utils.formatTime(this.duration)
+				// 进度条
+				this.progressBar = parseInt((currentTime / duration).toFixed(2) * parseInt(this.winWidth))
+			},
+		}
+	}
+</script>
+
+<style scoped>
+	.page_content {
+		flex: 1;
+		background: #000;
+		position: relative;
+	}
+	.page_content .main_content {
+		flex: 1;
+		position: relative;
+		background: #000;
+	}
+	.page_content .main_content .swiper {
+		flex: 1;
+	}
+	.page_content .main_content .swiper .swiper_item {
+		position: relative;
+	}
+	.page_content .main_content .swiper .swiper_item .videos {
+		flex: 1;
+		position: relative;
+	}
+	.page_content .main_content .swiper .swiper_item .videos .video {
+		flex: 1;
+	}
+	/* 视频播放错误 */
+	.page_content .main_content .swiper .swiper_item .videos .verror {
+		width: 750rpx;
+		position: absolute;
+		top: 0;
+		left: 0;
+	}
+	.page_content .main_content .swiper .swiper_item .videos .verror .image {
+		width: 750rpx;
+		flex: 1;
+		opacity: 0.3;
+	}
+	.page_content .main_content .swiper .swiper_item .videos .verror .content {
+		width: 750rpx;
+		position: absolute;
+		top: 750rpx;
+		left: 0;
+		z-index: 1;
+		transform: translate(0, -50%);
+		align-items: center;
+	}
+	.page_content .main_content .swiper .swiper_item .videos .verror .content .text {
+		font-size: 32rpx;
+		color: #fff;
+		margin-top: 40rpx;
+	}
+	.page_content .main_content .swiper .swiper_item .buttons {
+		position: absolute;
+		top: 750rpx;
+		left: 375rpx;
+		z-index: 1;
+		transform: translate(-50%, -50%);
+	}
+	.page_content .main_content .swiper .swiper_item .sidebar {
+		position: absolute;
+		right: 20rpx;
+		bottom: 200rpx;
+		z-index: 1;
+	}
+	.page_content .main_content .swiper .swiper_item .sidebar .item {
+		margin-bottom: 40rpx;
+		align-items: center;
+	}
+	.page_content .main_content .swiper .swiper_item .sidebar .item:last-child {
+		margin-bottom: 0;
+	}
+	.page_content .main_content .swiper .swiper_item .sidebar .item .image {
+		width: 70rpx;
+		opacity: 0.9;
+	}
+	.page_content .main_content .swiper .swiper_item .sidebar .item .text {
+		font-size: 28rpx;
+		color: #fff;
+	}
+	.page_content .main_content .swiper .swiper_item .sidebar .item .text.active {
+		color: #ee7f33;
+	}
+	
+	
+	
+	.page_content .main_content .swiper .swiper_item .infobox {
+		width: 570rpx;
+		position: absolute;
+		bottom: 30rpx;
+		left: 30rpx;
+		z-index: 1;
+	}
+	.page_content .main_content .swiper .swiper_item .infobox .title {
+		font-weight: 700;
+		margin-bottom: 20rpx;
+		color: #fff;
+		font-size: 32rpx;
+	}
+	.page_content .main_content .swiper .swiper_item .infobox .textarea {
+		width: 570rpx;
+		font-size: 30rpx;
+		line-height: 40rpx;
+		color: #fff;
+		margin-bottom: 20rpx;
+		lines: 2;
+		text-overflow: ellipsis;
+	}
+	.page_content .main_content .swiper .swiper_item .infobox .content {
+		display: flex;
+		flex-direction: row;
+	}
+	.page_content .main_content .swiper .swiper_item .infobox .content .text1 {
+		margin-left: 16rpx;
+		font-size: 32rpx;
+		color: #fff;
+	}
+	.page_content .main_content .swiper .swiper_item .infobox .content .text2 {
+		text-decoration: underline;
+		font-size: 32rpx;
+		color: #fff;
+	}
+	.page_content .main_content .swiper .swiper_item .progress {
+		width: 750rpx;
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		z-index: 1;
+		background: #333;
+	}
+	.page_content .main_content .swiper .swiper_item .progress .bar {
+		height: 2rpx;
+		background: #fff;
+	}
+</style>

@@ -1,0 +1,62 @@
+/**
+  * @Description: 
+  * @Author: FangYaoTang
+  * @Date: 2023-08-16 09:15:02
+  * @LastEditor: FangYaoTang
+  * @LastEditTime: 2023-08-16 09:15:04
+  * @Copyright: by 南阳迈特网络科技有限公司 禁止任何形式（包含二次开发）转售系统源码，违者必究。
+  */
+
+
+view,
+scroll-view,
+swiper,
+button,
+input,
+textarea,
+label,
+navigator,
+image {
+	box-sizing: border-box;
+}
+
+image {
+	display: block;
+	height: auto;
+}
+
+button {
+	padding: 0;
+	margin: 0;
+	
+	&::after {
+		border: none;
+	}
+}
+
+uni-page-body,
+html,
+body {  
+	height: 100%;
+
+}
+
+.placeholder {
+	color: #999;
+	font-weight: normal;
+}
+
+.uicon-arrow-left {
+	font-weight: bold !important;
+}
+
+.page_content {
+	height: 100%;
+	// position: relative;
+	// overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	.main_content {
+		flex: 1;
+	}
+}
