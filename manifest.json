@@ -7,7 +7,7 @@
     "transformPx" : false,
     /* 5+App特有相关 */
     "app-plus" : {
-        "safearea" : {
+        "safearea" : { 
             "bottom" : {
                 // 底部安全区域配置  
                 "offset" : "none" // 底部安全区域偏移，"none"表示不空出安全区域，"auto"自动计算空出安全区域，默认值为"none"  
