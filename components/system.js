@@ -10,19 +10,19 @@ const setSystemStyle =(type,iscolor) => {
 				           "selectedIconPath": "static/images/inhome.png",
 				           "text": "首页"
 				       },
-				       {
-				           "pagePath": "pages/home/watch",
-				           "iconPath": "static/images/chasing.png",
-				           "selectedIconPath": "static/images/inchasing.png",
-				           "text": "追剧"
-				       },
+
 						{
 							"pagePath": "pages/home/video",
 							"text": "介绍",
 							"iconPath": "static/images/introduce.png",
 							"selectedIconPath": "static/images/inintroduce.png"
-						},
-						{
+						}, {
+				"pagePath": "pages/home/watch",
+				"iconPath": "static/images/chasing.png",
+				"selectedIconPath": "static/images/inchasing.png",
+				"text": "追剧"
+			},
+			{
 							"pagePath": "pages/home/user",
 							"text": "我的",
 							"iconPath": "static/images/duce.png",
